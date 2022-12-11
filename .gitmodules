@@ -1,3 +1,12 @@
 [submodule "Vendor/premake/premake-cmake"]
 	path = Vendor/premake/premake-cmake
 	url = https://github.com/DnA-IntRicate/premake-cmake.git
+[submodule "Templates/Vendor/spdlog"]
+	path = Templates/Vendor/spdlog
+	url = https://github.com/DnA-IntRicate/spdlog.git
+[submodule "Templates/Vendor/glfw"]
+	path = Templates/Vendor/glfw
+	url = https://github.com/DnA-IntRicate/glfw.git
+[submodule "Templates/Vendor/imgui"]
+	path = Templates/Vendor/imgui
+	url = https://github.com/DnA-IntRicate/imgui.git
