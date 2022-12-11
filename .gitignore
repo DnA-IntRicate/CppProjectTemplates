@@ -69,6 +69,7 @@ ScaffoldingReadMe.txt
 StyleCopReport.xml
 
 # Files built by Visual Studio
+*.sln
 *_i.c
 *_p.c
 *_h.h
@@ -89,6 +90,9 @@ StyleCopReport.xml
 *.tmp
 *.tmp_proj
 *_wpftmp.csproj
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
 *.log
 *.tlog
 *.vspscc
@@ -382,7 +386,6 @@ FodyWeavers.xsd
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-*.code-workspace
 
 # Local History for Visual Studio Code
 .history/
