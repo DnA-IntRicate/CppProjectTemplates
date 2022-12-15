@@ -1,5 +1,5 @@
-#include <iostream>
-#include <cstdint>
+#include <Application.hpp>
+#include <Debug.hpp>
 
 #include <GLFW/glfw3.h>
 #include <spdlog/spdlog.h>
@@ -8,14 +8,13 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_glfw.h>
 #include <glad/glad.h>
-// Add glm?
-#include <Application.hpp>
-#include <Debug.hpp>
+
+#include <iostream>
+#include <cstdint>
 
 
 static GLFWwindow* g_Window = nullptr;
 static float g_LastFrameTime = 0.0f;
-
 
 constexpr static void GLFWErrorCallback(int error_code, const char* description) noexcept
 {
@@ -54,6 +53,7 @@ int main(int argc, char** argv)
             {
                 case GLFW_PRESS:    Application::OnKeyPressed(key); break;
                 case GLFW_RELEASE:  Application::OnKeyReleased(key); break;
+                // TODO: Add OnKeyRepeated
             }
         });
 
@@ -63,6 +63,7 @@ int main(int argc, char** argv)
             {
                 case GLFW_PRESS:    Application::OnMouseButtonPressed(button); break;
                 case GLFW_RELEASE:  Application::OnMouseButtonReleased(button); break;
+                // TODO: Add OnMouseButtonRepeated
             }
         });
 

@@ -4,9 +4,9 @@
 #include <filesystem>
 
 #pragma warning(push, 0)
-#include <spdlog/spdlog.h>
-#include <spdlog/fmt/fmt.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+    #include <spdlog/spdlog.h>
+    #include <spdlog/fmt/fmt.h>
+    #include <spdlog/sinks/stdout_color_sinks.h>
 #pragma warning(pop)
 
 
@@ -17,7 +17,7 @@ public:
     {
         spdlog::sink_ptr colorSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         colorSink->set_pattern("%^[%T] %n: %v%$");
-
+        
         s_Log = std::make_shared<spdlog::logger>(spdlog::logger("GLFW-OPENGL4.5", colorSink));
         spdlog::register_logger(s_Log);
         s_Log->set_level(spdlog::level::trace);
