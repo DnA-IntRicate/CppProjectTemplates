@@ -62,7 +62,14 @@ workspace "glfw-dx11"
         {
             "src/include/**.h",
             "src/include/**.hpp",
-            "src/source/**.cpp"
+            "src/source/**.cpp",
+
+            "../Vendor/imgui/*.h",
+            "../Vendor/imgui/*.cpp",
+            "../Vendor/imgui/backends/imgui_impl_glfw.cpp",
+            "../Vendor/imgui/backends/imgui_impl_glfw.h",
+            "../Vendor/imgui/backends/imgui_impl_dx11.h",
+            "../Vendor/imgui/backends/imgui_impl_dx11.cpp"
         }
 
         includedirs
@@ -82,8 +89,7 @@ workspace "glfw-dx11"
         links
         {
             "glfw",
-            "spdlog",
-            "D3d11.dll"
+            "spdlog"
         }
 
         defines
