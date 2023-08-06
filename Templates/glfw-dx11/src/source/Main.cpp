@@ -30,6 +30,8 @@
 #include <imgui_impl_glfw.h>
 
 #include <iostream>
+#include <ostream>
+#include <fstream>
 #include <cstdint>
 
 static GLFWwindow* g_Window = nullptr;
@@ -46,16 +48,95 @@ static ID3D11InputLayout* g_VertexBufferLayout;
 static ID3D11VertexShader* g_VertexShader;
 static ID3D11PixelShader* g_PixelShader;
 
+struct Vertex
+{
+    DirectX::XMFLOAT3 Position;
+    DirectX::XMFLOAT4 Color;
+};
+
 
 constexpr static void GLFWErrorCallback(int error_code, const char* description) noexcept
 {
     Debug::Critical("GLFW Error ({0}) - ", error_code, description);
 }
 
-struct Vertex
+static void CacheShader(ID3D10Blob* shaderBlob, const std::string& fileName)
 {
-    DirectX::XMFLOAT3 position;
-};
+    std::ofstream out(fileName, std::ios::out | std::ios::binary);
+    if (out.is_open())
+    {
+        out.write((char*)shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize());
+        out.flush();
+        out.close();
+    }
+}
+
+static void GetOrCompileShaders()
+{
+    ID3D10Blob* vertexShaderBlob = nullptr;
+    ID3D10Blob* pixelShaderBlob = nullptr;
+
+    if (std::filesystem::exists("SHADER_VERTEX.cache"))
+    {
+        std::ifstream in("SHADER_VERTEX.cache", std::ios::in | std::ios::binary);
+        if (in.is_open())
+        {
+            in.seekg(0, std::ios::end);
+            size_t size = in.tellg();
+            in.seekg(0, std::ios::beg);
+
+            D3DCreateBlob(size, &vertexShaderBlob);
+            in.read((char*)vertexShaderBlob->GetBufferPointer(), size);
+            in.close();
+        }
+    }
+    else
+    {
+        HRESULT hr = D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "main", "vs_4_0", 0, 0, &vertexShaderBlob, nullptr);
+        if (FAILED(hr))
+            std::cout << "VertexShader failed to compile!";
+    }
+
+    g_Device->CreateVertexShader(vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize(), nullptr, &g_VertexShader);
+
+    std::vector<D3D11_INPUT_ELEMENT_DESC> inputElementDesc =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0  },
+        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+    };
+
+    g_Device->CreateInputLayout(inputElementDesc.data(), (UINT)inputElementDesc.size(), vertexShaderBlob->GetBufferPointer(),
+        vertexShaderBlob->GetBufferSize(), &g_VertexBufferLayout);
+
+    if (std::filesystem::exists("SHADER_PIXEL.cache"))
+    {
+        std::ifstream in("SHADER_PIXEL.cache", std::ios::in | std::ios::binary);
+        if (in.is_open())
+        {
+            in.seekg(0, std::ios::end);
+            size_t size = in.tellg();
+            in.seekg(0, std::ios::beg);
+
+            D3DCreateBlob(size, &pixelShaderBlob);
+            in.read((char*)pixelShaderBlob->GetBufferPointer(), size);
+            in.close();
+        }
+    }
+    else
+    {
+        HRESULT hr = D3DCompileFromFile(L"PixelShader.hlsl", nullptr, nullptr, "main", "ps_4_0", 0, 0, &pixelShaderBlob, nullptr);
+        if (FAILED(hr))
+            std::cout << "PixelShader failed to compile!";
+    }
+
+    g_Device->CreatePixelShader(pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize(), nullptr, &g_PixelShader);
+
+    if (!std::filesystem::exists("SHADER_VERTEX.cache"))
+        CacheShader(vertexShaderBlob, "SHADER_VERTEX.cache");
+
+    if (!std::filesystem::exists("SHADER_PIXEL.cache"))
+        CacheShader(pixelShaderBlob, "SHADER_PIXEL.cache");
+}
 
 static void InitDx11()
 {
@@ -83,20 +164,8 @@ static void InitDx11()
     std::vector<D3D_FEATURE_LEVEL> featureLevels = { D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_11_0 };
 
     D3D_FEATURE_LEVEL featureLevel;
-    HRESULT hr = D3D11CreateDeviceAndSwapChain(
-        nullptr,
-        D3D_DRIVER_TYPE_HARDWARE,
-        nullptr,
-        D3D11_CREATE_DEVICE_DEBUG,
-        featureLevels.data(),
-        (UINT)featureLevels.size(),
-        D3D11_SDK_VERSION,
-        &swapChainDesc,
-        &g_SwapChain,
-        &g_Device,
-        &featureLevel,
-        &g_DeviceContext
-    );
+    HRESULT hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_DEBUG, featureLevels.data(),
+        (UINT)featureLevels.size(), D3D11_SDK_VERSION, &swapChainDesc, &g_SwapChain, &g_Device, &featureLevel, &g_DeviceContext);
 
     ID3D11Texture2D* backBuffer;
     g_SwapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
@@ -118,85 +187,43 @@ static void InitDx11()
     viewport.TopLeftY = 0;
     g_DeviceContext->RSSetViewports(1, &viewport);
 
-    Vertex triangleVertices[] =
+    std::vector<Vertex> triangleVertices =
     {
-        { DirectX::XMFLOAT3(0.0f, 0.5f, 0.0f) },    // Top
-        { DirectX::XMFLOAT3(0.5f, -0.5f, 0.0f) },   // Right    
-        { DirectX::XMFLOAT3(-0.5f, -0.5f, 0.0f) }   // Left
+        { { -0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },  // Top Left
+        { {  0.5f,  0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } },  // Top Right
+        { {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },  // Bottom Right    
+        { { -0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f, 0.0f, 1.0f } }   // Bottom Left
     };
+
+    std::vector<UINT> triangleIndices = { 0, 1, 2, 2, 3, 0 };
 
     D3D11_BUFFER_DESC vertexBufferDesc;
     ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
     vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    vertexBufferDesc.ByteWidth = sizeof(Vertex) * 3; // Use the size of the vertices array
+    vertexBufferDesc.ByteWidth = sizeof(Vertex) * triangleVertices.size(); 
     vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     vertexBufferDesc.CPUAccessFlags = 0;
     vertexBufferDesc.MiscFlags = 0;
 
     D3D11_SUBRESOURCE_DATA vertexBufferData;
     ZeroMemory(&vertexBufferData, sizeof(vertexBufferData));
-    vertexBufferData.pSysMem = triangleVertices;
+    vertexBufferData.pSysMem = triangleVertices.data();
     g_Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &g_VertexBuffer);
-
-    // Indices for the triangle
-    UINT triangleIndices[] = { 0, 1, 2 }; // Indices of the vertices defined in the Vertex array
 
     D3D11_BUFFER_DESC indexBufferDesc;
     ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
     indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    indexBufferDesc.ByteWidth = sizeof(UINT) * 3; // Use the size of the indices array
+    indexBufferDesc.ByteWidth = sizeof(UINT) * triangleIndices.size();
     indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
     indexBufferDesc.CPUAccessFlags = 0;
     indexBufferDesc.MiscFlags = 0;
 
     D3D11_SUBRESOURCE_DATA indexBufferData;
     ZeroMemory(&indexBufferData, sizeof(indexBufferData));
-    indexBufferData.pSysMem = triangleIndices;
+    indexBufferData.pSysMem = triangleIndices.data();
     g_Device->CreateBuffer(&indexBufferDesc, &indexBufferData, &g_IndexBuffer);
 
-    ID3D10Blob* vertexShaderBlob;
-    ID3D10Blob* pixelShaderBlob;
-
-    hr = D3DCompileFromFile(
-        L"VertexShader.hlsl",
-        nullptr,
-        nullptr,
-        "main",
-        "vs_4_0",
-        0,
-        0,
-        &vertexShaderBlob,
-        nullptr
-    );
-
-    if (FAILED(hr))
-        std::cout << "VertexShader failed to compile!";
-
-    hr = g_Device->CreateVertexShader(vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize(), nullptr, &g_VertexShader);
-
-    D3D11_INPUT_ELEMENT_DESC inputElementDesc[] =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-    };
-
-    g_Device->CreateInputLayout(inputElementDesc, 1, vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize(), &g_VertexBufferLayout);
-
-    hr = D3DCompileFromFile(
-        L"PixelShader.hlsl",
-        nullptr,
-        nullptr,
-        "main",
-        "ps_4_0",
-        0,
-        0,
-        &pixelShaderBlob,
-        nullptr
-    );
-
-    if (FAILED(hr))
-        std::cout << "PixelShader failed to compile!";
-
-    g_Device->CreatePixelShader(pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize(), nullptr, &g_PixelShader);
+    GetOrCompileShaders();
 }
 
 static void DoDx11Stuff()
@@ -213,7 +240,7 @@ static void DoDx11Stuff()
     g_DeviceContext->IASetIndexBuffer(g_IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
     // Draw the indexed triangle
-    g_DeviceContext->DrawIndexed(3, 0, 0);
+    g_DeviceContext->DrawIndexed(6, 0, 0);
 }
 
 int main(int argc, char** argv)

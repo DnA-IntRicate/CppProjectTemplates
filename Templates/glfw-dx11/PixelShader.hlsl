@@ -2,11 +2,19 @@
 
 struct PSInput
 {
-    float4 position : SV_POSITION;
+    float4 Position : SV_POSITION;
+    float4 Color : COLOR;
 };
 
-float4 main(PSInput input) : SV_TARGET
+struct PSOutput
 {
-    // Set the pixel color to red (1, 0, 0, 1)
-    return float4(1.0f, 0.0f, 0.0f, 1.0f);
+    float4 Color : COLOR;
+};
+
+PSOutput main(PSInput input) : SV_TARGET
+{
+    PSOutput output;
+    output.Color = input.Color;
+
+    return output;
 }
